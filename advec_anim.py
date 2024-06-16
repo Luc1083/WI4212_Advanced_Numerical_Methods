@@ -131,3 +131,5 @@ anim.save('advection_simulation.mp4', writer='ffmpeg', fps=30)
 # anim.save('advection_simulation.gif', writer=PillowWriter(fps=30))
 
 plt.show()
+
+#STILL NEED TO FIC
