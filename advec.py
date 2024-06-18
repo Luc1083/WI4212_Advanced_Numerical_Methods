@@ -5,8 +5,8 @@ from numba import jit
 # Parameters
 L = 4 * np.pi
 T = 5  # 5 periods
-Nx = 1000  # Number of spatial points
-Nt = 100000  # Number of time steps
+Nx = 100  # Number of spatial points
+Nt = 128  # Number of time steps
 u = -1  # Advection velocity u
 
 # Create a non-uniform grid
@@ -17,7 +17,7 @@ dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 # Ensure CFL condition is met
 dt = T / Nt
 CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
-print(f"CFL condition: {CFL}")
+print(f"CFL condition: {CFL:.2}")
 if CFL > 1:
     raise ValueError("CFL condition is not met. The simulation may be unstable.")
 
@@ -39,9 +39,9 @@ def apply_periodic_bc(q):
 @jit(nopython=True)
 def first_order_upwind(q, u, dt, dx, Nt):
     q_new = np.copy(q)
+    
     for n in range(Nt):
-        for i in range(1, len(q) - 1):
-            q_new[i] = q[i] + u * dt / dx[i] * (q[i] - q[i-1])
+        q_new[:-2] = q[:-2] - u * dt / dx[:-2] * (q[1:-1] - q[:-2])
         apply_periodic_bc(q_new)
         q[:] = q_new[:]
     return q
@@ -51,7 +51,7 @@ def first_order_upwind(q, u, dt, dx, Nt):
 def lax_wendroff(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
-        q_new[1:-1] = q[1:-1] + u * dt / (2*dx[1:-1]) * (q[2:] - q[:-2]) + (u**2 * dt**2) / (2*dx[1:-1] * (dx[1:-1] + dx[:-2])) * (q[2:] - 2*q[1:-1] + q[:-2])
+        q_new[1:-1] = q[1:-1] - u * dt / (2*dx[1:-1]) * (q[2:] - q[:-2]) + (u**2 * dt**2) / (2*dx[1:-1] * (dx[1:-1] + dx[:-2])) * (q[2:] - 2*q[1:-1] + q[:-2])
         apply_periodic_bc(q_new)
         q[:] = q_new[:]
     return q
@@ -76,7 +76,7 @@ def muscl_mc(q, u, dt, dx, Nt):
         qL = q[:-1] + phi[:-1] * (q[1:] - q[:-1]) / 2
         qR = q[1:] - phi[:-1] * (q[1:] - q[:-1]) / 2
         
-        flux = -0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
+        flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
         
         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
         apply_periodic_bc(q_new)
@@ -89,16 +89,22 @@ q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
 q_muscl_mc = muscl_mc(np.copy(q0), u, dt, dx, Nt)
 
 # Exact solution after time T
-q_exact = f((x + T * u) % L)
+q_exact = f((x - T * u) % L)
 
 # Plotting results
 plt.figure(figsize=(12, 8))
 
-plt.plot(x, q_upwind, label='First-order Upwind')
-plt.plot(x, q_lax_wendroff, label='Lax-Wendroff')
-plt.plot(x, q_muscl_mc, label='High-Resolution MUSCL MC')
-plt.plot(x, q_exact, label='Exact Solution',
-         linestyle='-', marker = None, linewidth = 1)
+plt.plot(x, q0, '-.' , c='blue',
+         label='Initial Solution',linewidth = 1.5, alpha = 0.25)
+
+plt.plot(x, q_upwind, '-',c = 'purple',
+         label='Upwind')
+plt.plot(x, q_lax_wendroff, '-', c = 'orange',
+         label='Lax-Wendroff')
+plt.plot(x, q_muscl_mc,'-',c = 'green',
+         label='MUSCL w/ MC')
+plt.plot(x, q_exact, '-.', c='blue',
+         label='Exact Solution', linewidth = 1.5)
 
 plt.legend()
 plt.xlabel('x')
