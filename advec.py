@@ -1,25 +1,45 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from numba import jit
 
 # Parameters
 L = 4 * np.pi
 T = 5  # 5 periods
-Nx = 200  # Number of spatial points
-Nt = 2000  # Number of time steps
-u = -1  # Advection velocity u
 
-# Create a non-uniform grid
+Nx = 1000  # Number of spatial points
+# Nt = 100  # Number of time steps
+u = -1  # Advection velocity u
+CFL = 0.1
+
+# # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
+# x *= np.exp(x)
 dx = np.diff(x)
 dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
+# Chebyshev nodes in [-1, 1]
+# chebyshev_nodes = np.cos(np.pi * (2 * np.arange(1, Nx + 1) - 1) / (2 * Nx))
+
+# # Transform nodes to the interval [0, L]
+# x = 0.5 * L * (chebyshev_nodes + 1)
+
+# # Compute the differences
+# dx = np.diff(x)
+# dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
+
+# Plot the histogram of dx
+# plt.plot(x,dx)
+# plt.show()
+
 # Ensure CFL condition is met
-dt = T / Nt
-CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
-print(f"CFL condition: {CFL:.2}")
+dt = CFL * np.min(np.abs(dx)) /np.abs(u)
+
+Nt = int(np.round(T/dt))
+# CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
+print(f"CFL condition: {CFL:.2f}")
 if CFL > 1:
-    raise ValueError("CFL condition is not met. The simulation may be unstable.")
+    print("CFL condition is not met. The simulation may be unstable.")
 
 # Initial condition function
 def f(x):
@@ -95,39 +115,37 @@ def muscl_mc(q, u, dt, dx, Nt):
         flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
         
         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
-        apply_periodic_bc(q_new)
+        q_new[0] = q_new[-2]
+        q_new[-1] = q_new[1]
         q[:] = q_new[:]
     return q
-
-# Run simulations
-q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, Nt)
-q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
-q_muscl_mc = muscl_mc(np.copy(q0), u, dt, dx, Nt)
 
 # Exact solution after time T
 q_exact = f((x - T * u) % L)
 
-# Plotting results
-plt.figure(figsize=(12, 8))
+# Set up the figure and axis
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.set_xlim(0, L)
+ax.set_ylim(-0.2, 1.5)
+ax.set_xlabel('x')
+ax.set_ylabel('q')
+ax.set_title(f'Advection Equation, CFL = {CFL:.2f}')
 
-plt.plot(x, q0, '-.' , c='blue',
-         label='Initial Solution', linewidth=1.5, alpha=0.25)
+q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, Nt)
+q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
+q_muscl_mc = muscl_mc(np.copy(q0), u, dt, dx, Nt)
 
-plt.plot(x, q_upwind, '-', c='purple',
-         label='Upwind')
+line0, = ax.plot(x, q0, '-.', c='blue', label='Initial Condition', linewidth=1.5, alpha=0.2)
+line1, = ax.plot(x, q_upwind, '-', c='purple', label='Upwind')
+line2, = ax.plot(x, q_lax_wendroff, '-', c='orange', label='Lax-Wendroff')
+line3, = ax.plot(x, q_muscl_mc, '-', c='green', label='MUSCL w/ MC')
+line4, = ax.plot(x, q_exact, '-.', c='blue', label='Exact Solution', linewidth=1.5)
 
-plt.plot(x, q_lax_wendroff, '-', c='orange',
-         label='Lax-Wendroff')
+title = ax.text(0.925,0.03, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':6},
+                transform=ax.transAxes, ha="center")
 
-plt.plot(x, q_muscl_mc, '-', c='green',
-         label='MUSCL w/ MC')
-
-plt.plot(x, q_exact, '-.', c='blue',
-         label='Exact Solution', linewidth=1.5)
-
-plt.legend()
-plt.xlabel('x')
-plt.ylabel('q')
-plt.title('Comparison of Numerical Methods for Advection Equation on Uniform Grid')
+ax.legend()
 plt.grid()
+plt.tight_layout()
+
 plt.show()
