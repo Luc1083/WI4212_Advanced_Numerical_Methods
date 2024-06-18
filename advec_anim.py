@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from numba import jit
+from matplotlib import animation
 
 # Parameters
 L = 4 * np.pi
@@ -28,16 +29,16 @@ dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 # dx = np.diff(x)
 # dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
-# Plot the histogram of dx
-# plt.plot(x,dx)
-# plt.show()
-
 # Ensure CFL condition is met
 dt = CFL * np.min(np.abs(dx)) /np.abs(u)
-
 Nt = int(np.round(T/dt))
+
 # CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
+
 print(f"CFL condition: {CFL:.2f}")
+print(f"Number of timesteps: {Nt}")
+print(f"Timestep dt: {dt}")
+
 if CFL > 1:
     print("CFL condition is not met. The simulation may be unstable.")
 
@@ -126,10 +127,10 @@ q_exact = f((x - T * u) % L)
 # Set up the figure and axis
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlim(0, L)
-ax.set_ylim(-0.1, 1.1)
+ax.set_ylim(-0.2, 1.5)
 ax.set_xlabel('x')
 ax.set_ylabel('q')
-ax.set_title('Advection Equation Simulation')
+ax.set_title(f'1D Advection, CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
 
 q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, 1)
 q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, 1)
@@ -144,8 +145,9 @@ line4, = ax.plot(x, q_exact, '-', c='blue', label='Exact Solution', linewidth=1.
 title = ax.text(0.925,0.03, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':6},
                 transform=ax.transAxes, ha="center")
 
-ax.legend()
-plt.grid()
+ax.legend(loc="upper right")
+ax.grid()
+fig.tight_layout()
 
 # Initialization function
 def init():
@@ -164,7 +166,7 @@ def init():
     return line1, line2, line3, line4, title
 
 
-v_fac = 20
+v_fac = 10
 # Animation function
 def update(frame):
     global q_upwind, q_lax_wendroff, q_muscl_mc, q_exact
@@ -172,8 +174,6 @@ def update(frame):
     q_upwind = first_order_upwind(q_upwind, u, dt, dx, v_fac)
     q_lax_wendroff = lax_wendroff(q_lax_wendroff, u, dt, dx, v_fac)
     q_muscl_mc = muscl_mc(q_muscl_mc, u, dt, dx, v_fac)
-
-
 
     line1.set_ydata(q_upwind)
     line2.set_ydata(q_lax_wendroff)
@@ -188,5 +188,7 @@ def update(frame):
 
 # Create animation
 ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=10, blit=True)
-
+writer_ffmpeg = animation.FFMpegWriter(fps=30)  
 plt.show()
+ani.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg) 
+plt.close() 
