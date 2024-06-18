@@ -10,15 +10,31 @@ T = 5  # 5 periods
 Nx = 1000  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.1
+CFL = 0.2
 
-# Create a non-uniform grid
+# # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
+# x *= np.exp(x)
 dx = np.diff(x)
 dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
+# Chebyshev nodes in [-1, 1]
+# chebyshev_nodes = np.cos(np.pi * (2 * np.arange(1, Nx + 1) - 1) / (2 * Nx))
+
+# # Transform nodes to the interval [0, L]
+# x = 0.5 * L * (chebyshev_nodes + 1)
+
+# # Compute the differences
+# dx = np.diff(x)
+# dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
+
+# Plot the histogram of dx
+# plt.plot(x,dx)
+# plt.show()
+
 # Ensure CFL condition is met
-dt = CFL * np.min(dx) /np.abs(u)
+dt = CFL * np.min(np.abs(dx)) /np.abs(u)
+
 Nt = int(np.round(T/dt))
 # CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
 print(f"CFL condition: {CFL:.2f}")
@@ -125,7 +141,7 @@ line2, = ax.plot(x, q_lax_wendroff, '-', c='orange', label='Lax-Wendroff')
 line3, = ax.plot(x, q_muscl_mc, '-', c='green', label='MUSCL w/ MC')
 line4, = ax.plot(x, q_exact, '-', c='blue', label='Exact Solution', linewidth=1.5)
 
-title = ax.text(0.5,0.85, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':5},
+title = ax.text(0.925,0.03, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':6},
                 transform=ax.transAxes, ha="center")
 
 ax.legend()
@@ -147,26 +163,30 @@ def init():
     
     return line1, line2, line3, line4, title
 
+
+v_fac = 20
 # Animation function
 def update(frame):
     global q_upwind, q_lax_wendroff, q_muscl_mc, q_exact
     
-    q_upwind = first_order_upwind(q_upwind, u, dt, dx, 1)
-    q_lax_wendroff = lax_wendroff(q_lax_wendroff, u, dt, dx, 1)
-    q_muscl_mc = muscl_mc(q_muscl_mc, u, dt, dx, 1)
-    
+    q_upwind = first_order_upwind(q_upwind, u, dt, dx, v_fac)
+    q_lax_wendroff = lax_wendroff(q_lax_wendroff, u, dt, dx, v_fac)
+    q_muscl_mc = muscl_mc(q_muscl_mc, u, dt, dx, v_fac)
+
+
+
     line1.set_ydata(q_upwind)
     line2.set_ydata(q_lax_wendroff)
     line3.set_ydata(q_muscl_mc)
-    line4.set_ydata(f((x - frame*dt * u) % L))
+    line4.set_ydata(f((x - frame*dt*v_fac * u) % L))
 
     ax.set_title(f'Advection Equation Simulation')
     
-    title.set_text(f"t = {dt*frame:3f}")
+    title.set_text(f"t = {dt*frame*v_fac:.3f}")
 
     return line1, line2, line3, line4, title
 
 # Create animation
-ani = FuncAnimation(fig, update, frames=Nt, init_func=init, interval=10, blit=True)
+ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=10, blit=True)
 
 plt.show()
