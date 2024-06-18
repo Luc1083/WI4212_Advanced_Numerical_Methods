@@ -5,8 +5,8 @@ from numba import jit
 # Parameters
 L = 4 * np.pi
 T = 5  # 5 periods
-Nx = 100  # Number of spatial points
-Nt = 128  # Number of time steps
+Nx = 200  # Number of spatial points
+Nt = 2000  # Number of time steps
 u = -1  # Advection velocity u
 
 # Create a non-uniform grid
@@ -44,7 +44,6 @@ def apply_periodic_bc_upwind(q):
 @jit(nopython=True)
 def first_order_upwind(q, u, dt, dx, Nt):
     q_new = np.copy(q)
-    
     for n in range(Nt):
         q_new[:-2] = q[:-2] - u * dt / dx[:-2] * (q[1:-1] - q[:-2])
         apply_periodic_bc_upwind(q_new)
@@ -56,31 +55,43 @@ def first_order_upwind(q, u, dt, dx, Nt):
 def lax_wendroff(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
-        q_new[1:-1] = q[1:-1] - u * dt / (2*dx[1:-1]) * (q[2:] - q[:-2]) + (u**2 * dt**2) / (2*dx[1:-1] * (dx[1:-1] + dx[:-2])) * (q[2:] - 2*q[1:-1] + q[:-2])
-        apply_periodic_bc(q_new)
+        c = u * dt / dx
+        q_new[1:-1] = c[:-2]/2.0 * (1 + c[:-2]) * q[:-2] + (1 - c[1:-1]**2) * q[1:-1] - c[2:]/2.0 * (1 - c[2:]) * q[2:]
+        q_new[0] = q_new[-2]
+        q_new[-1] = q_new[1]
         q[:] = q_new[:]
     return q
 
-# MC flux limiter
 @jit(nopython=True)
-def mc_flux_limiter(r):
-    return np.maximum(0, np.minimum(np.minimum(2*r, (1 + r) / 2), 2))
+def minmod(a, b):
+    if a * b <= 0:
+        return 0
+    else:
+        return np.sign(a) * min(abs(a), abs(b))
 
-# High-Resolution method with MC flux limiter (MUSCL)
+# MUSCL with MC limiter method
 @jit(nopython=True)
 def muscl_mc(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
+        qim1 = np.roll(q, 1)   # q_{j-1}
+        qip1 = np.roll(q, -1)  # q_{j+1}
+        
+        dqR = qip1 - q
+        dqL = q - qim1
+        dqC = (qip1 - qim1) / 2.0
+        
         dq = np.zeros_like(q)
-        r = np.zeros_like(q)
+        for j in range(len(q)):
+            dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
         
-        dq[1:-1] = (q[2:] - q[:-2]) / 2
-        r[1:-1] = dq[:-2] / (dq[1:-1] + 1e-6)  # Add a small value to avoid division by zero
-        phi = mc_flux_limiter(r)
-        
-        qL = q[:-1] + phi[:-1] * (q[1:] - q[:-1]) / 2
-        qR = q[1:] - phi[:-1] * (q[1:] - q[:-1]) / 2
-        
+        # Left and Right extrapolated q-values at the boundary j+1/2
+        qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
+        qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
+
+        qL = qiph_M[:-1]
+        qR = qimh_M[1:]
+
         flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
         
         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
@@ -100,18 +111,19 @@ q_exact = f((x - T * u) % L)
 plt.figure(figsize=(12, 8))
 
 plt.plot(x, q0, '-.' , c='blue',
-         label='Initial Solution',linewidth = 1.5, alpha = 0.25)
+         label='Initial Solution', linewidth=1.5, alpha=0.25)
 
-plt.plot(x, q_upwind, '-',c = 'purple',
+plt.plot(x, q_upwind, '-', c='purple',
          label='Upwind')
 
-plt.plot(x, q_lax_wendroff, '-', c = 'orange',
+plt.plot(x, q_lax_wendroff, '-', c='orange',
          label='Lax-Wendroff')
-plt.plot(x, q_muscl_mc,'-',c = 'green',
+
+plt.plot(x, q_muscl_mc, '-', c='green',
          label='MUSCL w/ MC')
 
 plt.plot(x, q_exact, '-.', c='blue',
-         label='Exact Solution', linewidth = 1.5)
+         label='Exact Solution', linewidth=1.5)
 
 plt.legend()
 plt.xlabel('x')

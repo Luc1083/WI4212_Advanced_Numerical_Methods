@@ -1,14 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from numba import jit
-from matplotlib.animation import FuncAnimation, PillowWriter
 
 # Parameters
 L = 4 * np.pi
 T = 5  # 5 periods
+
 Nx = 1000  # Number of spatial points
-Nt = 100000  # Number of time steps
+# Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
+CFL = 0.1
 
 # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
@@ -16,11 +18,12 @@ dx = np.diff(x)
 dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
 # Ensure CFL condition is met
-dt = T / Nt
-CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
-print(f"CFL condition: {CFL}")
+dt = CFL * np.min(dx) /np.abs(u)
+Nt = int(np.round(T/dt))
+# CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
+print(f"CFL condition: {CFL:.2f}")
 if CFL > 1:
-    raise ValueError("CFL condition is not met. The simulation may be unstable.")
+    print("CFL condition is not met. The simulation may be unstable.")
 
 # Initial condition function
 def f(x):
@@ -36,14 +39,18 @@ def apply_periodic_bc(q):
     q[0] = q[-2]
     q[-1] = q[1]
 
+@jit(nopython=True)
+def apply_periodic_bc_upwind(q):
+    q[-2] = q[0]
+    q[-1] = q[1]
+
 # First-order upwind method
 @jit(nopython=True)
 def first_order_upwind(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
-        for i in range(1, len(q) - 1):
-            q_new[i] = q[i] + u * dt / dx[i] * (q[i] - q[i-1])
-        apply_periodic_bc(q_new)
+        q_new[:-2] = q[:-2] - u * dt / dx[:-2] * (q[1:-1] - q[:-2])
+        apply_periodic_bc_upwind(q_new)
         q[:] = q_new[:]
     return q
 
@@ -52,84 +59,114 @@ def first_order_upwind(q, u, dt, dx, Nt):
 def lax_wendroff(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
-        q_new[1:-1] = q[1:-1] + u * dt / (2*dx[1:-1]) * (q[2:] - q[:-2]) + (u**2 * dt**2) / (2*dx[1:-1] * (dx[1:-1] + dx[:-2])) * (q[2:] - 2*q[1:-1] + q[:-2])
-        apply_periodic_bc(q_new)
+        c = u * dt / dx
+        q_new[1:-1] = c[:-2]/2.0 * (1 + c[:-2]) * q[:-2] + (1 - c[1:-1]**2) * q[1:-1] - c[2:]/2.0 * (1 - c[2:]) * q[2:]
+        q_new[0] = q_new[-2]
+        q_new[-1] = q_new[1]
         q[:] = q_new[:]
     return q
 
-# MC flux limiter
 @jit(nopython=True)
-def mc_flux_limiter(r):
-    return np.maximum(0, np.minimum(np.minimum(2*r, (1 + r) / 2), 2))
+def minmod(a, b):
+    if a * b <= 0:
+        return 0
+    else:
+        return np.sign(a) * min(abs(a), abs(b))
 
-# High-Resolution method with MC flux limiter (MUSCL)
+# MUSCL with MC limiter method
 @jit(nopython=True)
 def muscl_mc(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
+        qim1 = np.roll(q, 1)   # q_{j-1}
+        qip1 = np.roll(q, -1)  # q_{j+1}
+        
+        dqR = qip1 - q
+        dqL = q - qim1
+        dqC = (qip1 - qim1) / 2.0
+        
         dq = np.zeros_like(q)
-        r = np.zeros_like(q)
+        for j in range(len(q)):
+            dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
         
-        dq[1:-1] = (q[2:] - q[:-2]) / 2
-        r[1:-1] = dq[:-2] / (dq[1:-1] + 1e-6)  # Add a small value to avoid division by zero
-        phi = mc_flux_limiter(r)
-        
-        qL = q[:-1] + phi[:-1] * (q[1:] - q[:-1]) / 2
-        qR = q[1:] - phi[:-1] * (q[1:] - q[:-1]) / 2
-        
-        flux = -0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
+        # Left and Right extrapolated q-values at the boundary j+1/2
+        qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
+        qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
+
+        qL = qiph_M[:-1]
+        qR = qimh_M[1:]
+
+        flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
         
         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
-        apply_periodic_bc(q_new)
+        q_new[0] = q_new[-2]
+        q_new[-1] = q_new[1]
         q[:] = q_new[:]
     return q
 
-# Initialize the data
-q_upwind = np.copy(q0)
-q_lax_wendroff = np.copy(q0)
-q_muscl_mc = np.copy(q0)
+# Exact solution after time T
+q_exact = f((x - T * u) % L)
 
-# Prepare the figure
-fig, ax = plt.subplots(figsize=(12, 8))
-
-line_upwind, = ax.plot(x, q_upwind, label='First-order Upwind')
-line_lax_wendroff, = ax.plot(x, q_lax_wendroff, label='Lax-Wendroff')
-line_muscl_mc, = ax.plot(x, q_muscl_mc, label='High-Resolution MUSCL MC')
-line_exact, = ax.plot(x, q0, label='Exact Solution', linestyle='-', linewidth=1)
-
-ax.legend()
+# Set up the figure and axis
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.set_xlim(0, L)
+ax.set_ylim(-0.1, 1.1)
 ax.set_xlabel('x')
 ax.set_ylabel('q')
-ax.set_title('Comparison of Numerical Methods for Advection Equation on Uniform Grid')
-ax.grid()
+ax.set_title('Advection Equation Simulation')
 
+q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, 1)
+q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, 1)
+q_muscl_mc = muscl_mc(np.copy(q0), u, dt, dx, 1)
 
+line0, = ax.plot(x, q0, '-.', c='blue', label='Initial Solution', linewidth=1.5, alpha=0.25)
+line1, = ax.plot(x, q_upwind, '-', c='purple', label='Upwind')
+line2, = ax.plot(x, q_lax_wendroff, '-', c='orange', label='Lax-Wendroff')
+line3, = ax.plot(x, q_muscl_mc, '-', c='green', label='MUSCL w/ MC')
+line4, = ax.plot(x, q_exact, '-', c='blue', label='Exact Solution', linewidth=1.5)
+
+title = ax.text(0.5,0.85, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':5},
+                transform=ax.transAxes, ha="center")
+
+ax.legend()
+plt.grid()
+
+# Initialization function
 def init():
-    line_upwind.set_ydata(np.copy(q0))
-    line_lax_wendroff.set_ydata(np.copy(q0))
-    line_muscl_mc.set_ydata(np.copy(q0))
-    line_exact.set_ydata(np.copy(q0))
-    return line_upwind, line_lax_wendroff, line_muscl_mc, line_exact
-
-def update(frame):
     global q_upwind, q_lax_wendroff, q_muscl_mc
-    q_upwind = first_order_upwind(np.copy(q_upwind), u, dt, dx, 1)
-    q_lax_wendroff = lax_wendroff(np.copy(q_lax_wendroff), u, dt, dx, 1)
-    q_muscl_mc = muscl_mc(np.copy(q_muscl_mc), u, dt, dx, 1)
-    q_exact = f((x + frame * dt * u) % L)
+    q_upwind = np.copy(q0)
+    q_lax_wendroff = np.copy(q0)
+    q_muscl_mc = np.copy(q0)
     
-    line_upwind.set_ydata(q_upwind)
-    line_lax_wendroff.set_ydata(q_lax_wendroff)
-    line_muscl_mc.set_ydata(q_muscl_mc)
-    line_exact.set_ydata(q_exact)
-    return line_upwind, line_lax_wendroff, line_muscl_mc, line_exact
+    line1.set_ydata(q_upwind)
+    line2.set_ydata(q_lax_wendroff)
+    line3.set_ydata(q_muscl_mc)
+    line4.set_ydata(q0)
+    
+    title.set_text(f"t = 0")
+    
+    return line1, line2, line3, line4, title
 
-anim = FuncAnimation(fig, update, frames=range(0, Nt, Nt // 100), init_func=init)
+# Animation function
+def update(frame):
+    global q_upwind, q_lax_wendroff, q_muscl_mc, q_exact
+    
+    q_upwind = first_order_upwind(q_upwind, u, dt, dx, 1)
+    q_lax_wendroff = lax_wendroff(q_lax_wendroff, u, dt, dx, 1)
+    q_muscl_mc = muscl_mc(q_muscl_mc, u, dt, dx, 1)
+    
+    line1.set_ydata(q_upwind)
+    line2.set_ydata(q_lax_wendroff)
+    line3.set_ydata(q_muscl_mc)
+    line4.set_ydata(f((x - frame*dt * u) % L))
 
-# Save the animation
-anim.save('advection_simulation.mp4', writer='ffmpeg', fps=30)
-# anim.save('advection_simulation.gif', writer=PillowWriter(fps=30))
+    ax.set_title(f'Advection Equation Simulation')
+    
+    title.set_text(f"t = {dt*frame:3f}")
+
+    return line1, line2, line3, line4, title
+
+# Create animation
+ani = FuncAnimation(fig, update, frames=Nt, init_func=init, interval=10, blit=True)
 
 plt.show()
-
-#STILL NEED TO FIC
