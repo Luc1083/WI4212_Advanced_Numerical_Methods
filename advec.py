@@ -35,6 +35,11 @@ def apply_periodic_bc(q):
     q[0] = q[-2]
     q[-1] = q[1]
 
+@jit(nopython=True)
+def apply_periodic_bc_upwind(q):
+    q[-2] = q[0]
+    q[-1] = q[1]
+
 # First-order upwind method
 @jit(nopython=True)
 def first_order_upwind(q, u, dt, dx, Nt):
@@ -42,7 +47,7 @@ def first_order_upwind(q, u, dt, dx, Nt):
     
     for n in range(Nt):
         q_new[:-2] = q[:-2] - u * dt / dx[:-2] * (q[1:-1] - q[:-2])
-        apply_periodic_bc(q_new)
+        apply_periodic_bc_upwind(q_new)
         q[:] = q_new[:]
     return q
 
@@ -99,10 +104,12 @@ plt.plot(x, q0, '-.' , c='blue',
 
 plt.plot(x, q_upwind, '-',c = 'purple',
          label='Upwind')
+
 plt.plot(x, q_lax_wendroff, '-', c = 'orange',
          label='Lax-Wendroff')
 plt.plot(x, q_muscl_mc,'-',c = 'green',
          label='MUSCL w/ MC')
+
 plt.plot(x, q_exact, '-.', c='blue',
          label='Exact Solution', linewidth = 1.5)
 
