@@ -10,7 +10,7 @@ T = 5  # 5 periods
 Nx = 1000  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.1
+CFL = 1.1
 
 # # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
