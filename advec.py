@@ -13,10 +13,10 @@ T = 5  # 5 periods
 Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.99
+CFL = 1
 
 if non_uniform is True:
-    x_1 = np.linspace(0, L/2, int(Nx * 2/3))
+    x_1 = np.linspace(0, L/2, int(Nx * 2/3), endpoint=False)
     x_2 = np.linspace(L/2,L, Nx - int(Nx * 2/3))
 
     x = np.concatenate([x_1,x_2])
@@ -176,14 +176,17 @@ q_exact = f((x - T * u) % L)
 # Set up the figure and axis
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlim(0, L)
-ax.set_ylim(-0.2, 1.5)
+ax.set_ylim(-0.2, 2)
 ax.set_xlabel('x')
 ax.set_ylabel('q')
-ax.set_title(f'1D Advection, CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
 
-if non_uniform is True:
+
+if non_uniform:
+    ax.set_title(f'1D Advection (Non-Uniform), CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
     ax.axvspan(0, L/2, alpha=0.1, color='red',label = 'fine')
     ax.axvspan(L/2, L, alpha=0.1, color='green', label = 'coarse')
+else:
+    ax.set_title(f'1D Advection (Uniform), CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
 
 q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, Nt)
 q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
@@ -203,10 +206,8 @@ ax.grid()
 fig.tight_layout()
 
 if non_uniform:
-
-    fig.savefig(f"figures/advec_CFL{CFL:.2e}_nx_{Nx}_NU.png")
-
+    fig.savefig(f"figures/advec_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}_NU.pdf")
 else:
-    fig.savefig(f"figures/advec_CFL{CFL:.2e}_nx_{Nx}_U.png")
+    fig.savefig(f"figures/advec_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}_U.pdf")
 
 # plt.show()

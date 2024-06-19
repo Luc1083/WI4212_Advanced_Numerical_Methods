@@ -4,16 +4,16 @@ from matplotlib.animation import FuncAnimation
 from numba import jit
 from matplotlib import animation
 
-non_uniform = True
+non_uniform = False
 
 # Parameters
 L = 4 * np.pi
 T = 20  # 5 periods
 
-Nx = 1000  # Number of spatial points
+Nx = 100  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.75
+CFL = 0.5
 
 if non_uniform is True:
     x_1 = np.linspace(0, L/2, int(Nx * 2/3), endpoint=False)
@@ -195,7 +195,7 @@ ax_norm.grid()
 
 fig.tight_layout()
 
-v_fac = 8
+v_fac = 1
 
 # Initialization function
 def init():
@@ -268,12 +268,12 @@ def animate(n):
 
     return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
 
-anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=5, blit=True)
+anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=10, blit=True)
 
-# plt.show()
+plt.show()
 
 writer_ffmpeg = animation.FFMpegWriter(fps=30)
-anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
+# anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
 
 # try:
 #     writer_ffmpeg = animation.FFMpegWriter(fps=30)
