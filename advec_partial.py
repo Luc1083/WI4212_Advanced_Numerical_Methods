@@ -210,9 +210,9 @@ def run_advec(T,CFL,grid_type,Nx):
     fig.tight_layout()
 
     if non_uniform:
-        fig.savefig(f"figures/advec_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}_NU.pdf")
+        fig.savefig(f"figures_advec/advec_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}_NU.pdf")
     else:
-        fig.savefig(f"figures/advec_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}_U.pdf")
+        fig.savefig(f"figures_advec/advec_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}_U.pdf")
 
 
 def main():
