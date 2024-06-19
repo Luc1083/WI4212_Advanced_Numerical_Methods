@@ -89,6 +89,8 @@ def minmod(a, b):
     else:
         return np.sign(a) * min(abs(a), abs(b))
 
+
+
 # MUSCL with MC limiter method
 @jit(nopython=True)
 def muscl_mc(q, u, dt, dx, Nt):
@@ -120,6 +122,35 @@ def muscl_mc(q, u, dt, dx, Nt):
         q[:] = q_new[:]
     return q
 
+def muscl_mc_trial(q, u, dt, dx, Nt):
+    q_new = np.copy(q)
+    for n in range(Nt):
+        v = u * dt / dx[1:-1]
+
+        dQ_inh = q - np.roll(q, 1)
+        dQ_iph = np.roll(q, -1) - q
+        dQ_ipf = np.roll(q, -2) - np.roll(q, -1)
+
+        theta_in = np.where(dQ_inh != 0, dQ_iph / dQ_inh, 0)
+        theta_ip = np.where(dQ_iph != 0, dQ_ipf / dQ_iph, 0)
+
+        psi_in = np.zeros_like(q)
+        psi_ip = np.zeros_like(q)
+        for j in range(len(q)):
+            psi_in[j] = np.max([0, np.min([(1 + theta_in[j]) / 2, 2, 2 * theta_in[j]])])
+            psi_ip[j] = np.max([0, np.min([(1 + theta_ip[j]) / 2, 2, 2 * theta_ip[j]])])
+
+        q_new[1:-1] = (
+            q[1:-1]
+            - v * (q[2:] - q[1:-1])
+            + 0.5 * v * (1 + v) * (psi_ip[1:-1] * (q[2:] - q[1:-1]) - psi_in[1:-1] * (q[1:-1] - q[:-2]))
+        )
+        q_new[0] = q_new[-2]
+        q_new[-1] = q_new[1]
+        q[:] = q_new[:]
+    return q
+
+
 # Exact solution after time T
 q_exact = f((x - T * u) % L)
 
@@ -133,7 +164,7 @@ ax.set_title(f'Advection Equation, CFL = {CFL:.2f}')
 
 q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, Nt)
 q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
-q_muscl_mc = muscl_mc(np.copy(q0), u, dt, dx, Nt)
+q_muscl_mc = muscl_mc_trial(np.copy(q0), u, dt, dx, Nt)
 
 line0, = ax.plot(x, q0, '-.', c='blue', label='Initial Condition', linewidth=1.5, alpha=0.2)
 line1, = ax.plot(x, q_upwind, '-', c='purple', label='Upwind')
