@@ -195,7 +195,7 @@ ax_norm.grid()
 
 fig.tight_layout()
 
-v_fac = 1
+v_fac = 5
 plot_norm = 1
 
 # Initialization function
@@ -267,8 +267,10 @@ def animate(n):
     line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
 
     title.set_text(f'Time = {t:.2f}')
+    print(n+1)
+    print(Nt//v_fac)
     # print(n+1)
-    if n+1 == Nt//v_fac and plot_norm ==10:
+    if n+1 == Nt//v_fac and plot_norm ==1:
         
         fig_1 = plt.figure(figsize=(8, 5))
 
@@ -276,17 +278,17 @@ def animate(n):
 
         ax_norm_1.plot(time_stamp, L1_norm_upwind, 'b-' ,label="L1 Upwind")
         ax_norm_1.plot(time_stamp, L1_norm_lax_wendroff, 'r-',label="L1 Lax-Wendroff")
-        ax_norm_1.plot(time_stamp, L1_norm_muscl_mc, label="L1 MUSCL w/ MC")
+        ax_norm_1.plot(time_stamp, L1_norm_muscl_mc, 'g-' ,label="L1 MUSCL w/ MC")
 
-        ax_norm_1.plot(time_stamp, L2_norm_upwind,label="L2 Upwind",linestyle = '--')
-        ax_norm_1.plot(time_stamp, L2_norm_lax_wendroff, label="L2 Lax-Wendroff",linestyle = '--')
-        ax_norm_1.plot(time_stamp, L2_norm_muscl_mc, label="L2 MUSCL w/ MC",linestyle = '--')
+        ax_norm_1.plot(time_stamp, L2_norm_upwind,color ='cyan',label="L2 Upwind",)
+        ax_norm_1.plot(time_stamp, L2_norm_lax_wendroff, color='orange',label="L2 Lax-Wendroff")
+        ax_norm_1.plot(time_stamp, L2_norm_muscl_mc, color='lime' ,label="L2 MUSCL w/ MC")
 
         ax_norm_1.legend(loc="upper right",ncol =2)
         ax_norm_1.grid()
         ax_norm_1.set_xlabel("Timestamp")
         ax_norm_1.set_ylabel("Norm value")
-        ax_norm_1.set_ylim(-0.05,0.1)
+        ax_norm_1.set_ylim(0,1)
 
 
         fig_1.tight_layout()
@@ -297,12 +299,12 @@ def animate(n):
 
     return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
 
-anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=5, blit=True)
+anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=1, blit=True)
 
-plt.show()
+# plt.show()
 
-# writer_ffmpeg = animation.FFMpegWriter(fps=30)
-# anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
+writer_ffmpeg = animation.FFMpegWriter(fps=30)
+anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
 
 # try:
 #     writer_ffmpeg = animation.FFMpegWriter(fps=30)
