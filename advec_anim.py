@@ -4,20 +4,31 @@ from matplotlib.animation import FuncAnimation
 from numba import jit
 from matplotlib import animation
 
+non_uniform = True
+
 # Parameters
 L = 4 * np.pi
-T = 5  # 5 periods
+T = 20  # 5 periods
 
-Nx = 200  # Number of spatial points
+Nx = 1000  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.9
+CFL = 0.75
 
-# # Create a non-uniform grid
-x = np.linspace(0, L, Nx)
-# x *= np.exp(x)
-dx = np.diff(x)
-dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
+if non_uniform is True:
+    x_1 = np.linspace(0, L/2, int(Nx * 2/3), endpoint=False)
+    x_2 = np.linspace(L/2,L, Nx - int(Nx * 2/3))
+
+    x = np.concatenate([x_1,x_2])
+    dx = np.diff(x)
+    dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
+
+else:
+    # # Create a non-uniform grid
+    x = np.linspace(0, L, Nx)
+    # x *= np.exp(x)
+    dx = np.diff(x)
+    dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
 # Chebyshev nodes in [-1, 1]
 # chebyshev_nodes = np.cos(np.pi * (2 * np.arange(1, Nx + 1) - 1) / (2 * Nx))
@@ -35,7 +46,7 @@ Nt = int(np.round(T/dt))
 
 # CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
 
-print(f"CFL condition: {CFL:.2f}")
+print(f"Max CFL condition found: {CFL:.2f}")
 print(f"Number of timesteps: {Nt}")
 print(f"Timestep dt: {dt}")
 
@@ -90,36 +101,13 @@ def minmod(a, b):
     else:
         return np.sign(a) * min(abs(a), abs(b))
 
-# MUSCL with MC limiter method
-# @jit(nopython=True)
-# def muscl_mc(q, u, dt, dx, Nt):
-#     q_new = np.copy(q)
-#     for n in range(Nt):
-#         qim1 = np.roll(q, 1)   # q_{j-1}
-#         qip1 = np.roll(q, -1)  # q_{j+1}
-        
-#         dqR = qip1 - q
-#         dqL = q - qim1
-#         dqC = (qip1 - qim1) / 2.0
-        
-#         dq = np.zeros_like(q)
-#         for j in range(len(q)):
-#             dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
-        
-#         # Left and Right extrapolated q-values at the boundary j+1/2
-#         qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
-#         qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
+@jit(nopython=True)
+def get_L1(q,q_ex):
+    return np.sum(np.abs(q-q_ex)) / np.sum(np.abs(q_ex))
 
-#         qL = qiph_M[:-1]
-#         qR = qimh_M[1:]
-
-#         flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
-        
-#         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
-#         q_new[0] = q_new[-2]
-#         q_new[-1] = q_new[1]
-#         q[:] = q_new[:]
-#     return q
+@jit(nopython=True)
+def get_L2(q,q_ex):
+    return np.sum((q-q_ex)**2) / np.sum(q_ex**2)
 
 def muscl_mc(q, u, dt, dx, Nt):
     q_new = np.copy(q)
@@ -135,7 +123,7 @@ def muscl_mc(q, u, dt, dx, Nt):
 
         psi_in = np.zeros_like(q)
         psi_ip = np.zeros_like(q)
-        
+
         psi_in = np.max([psi_in, np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0)],axis=0)
         psi_ip = np.max([psi_ip, np.array([(1 + theta_ip) / 2, 2*np.ones_like(theta_in), 2 * theta_ip]).min(axis=0)],axis=0)
 
@@ -153,70 +141,148 @@ def muscl_mc(q, u, dt, dx, Nt):
 q_exact = f((x - T * u) % L)
 
 # Set up the figure and axis
-fig, ax = plt.subplots(figsize=(10, 6))
+fig, (ax, ax_norm) = plt.subplots(2, 1, figsize=(12, 7))
 ax.set_xlim(0, L)
 ax.set_ylim(-0.2, 1.5)
 ax.set_xlabel('x')
 ax.set_ylabel('q')
 ax.set_title(f'1D Advection, CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
 
+ax_norm.set_xlim(0, T)
+ax_norm.set_ylim(0, 2)
+ax_norm.set_xlabel('Time')
+ax_norm.set_ylabel('Norm Value')
+
 q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, 1)
 q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, 1)
 q_muscl_mc = muscl_mc(np.copy(q0), u, dt, dx, 1)
 
-line0, = ax.plot(x, q0, '-.', c='blue', label='Initial Solution', linewidth=1.5, alpha=0.25)
-line1, = ax.plot(x, q_upwind, '-', c='purple', label='Upwind')
-line2, = ax.plot(x, q_lax_wendroff, '-', c='orange', label='Lax-Wendroff')
-line3, = ax.plot(x, q_muscl_mc, '-', c='green', label='MUSCL w/ MC')
-line4, = ax.plot(x, q_exact, '-', c='blue', label='Exact Solution', linewidth=1.5)
+if non_uniform is True:
+    ax.axvspan(0, L/2, alpha=0.1, color='red', label='fine')
+    ax.axvspan(L/2, L, alpha=0.1, color='green', label='coarse')
 
-title = ax.text(0.925,0.03, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':6},
+line0, = ax.plot(x, q0, '-.', c='blue', label='Initial Solution', linewidth=1.5, alpha=0.25)
+line1, = ax.plot(x, q0, '-', c='purple', label='Upwind')
+line2, = ax.plot(x, q0, '-', c='orange', label='Lax-Wendroff')
+line3, = ax.plot(x, q0, '-', c='green', label='MUSCL w/ MC')
+line4, = ax.plot(x, q0, '-', c='blue', label='Exact Solution', linewidth=1.5)
+
+title = ax.text(0.925, 0.03, f"", bbox={'facecolor': 'w', 'alpha': 0.5, 'pad': 6},
                 transform=ax.transAxes, ha="center")
 
-ax.legend(loc="upper right")
+ax.legend(loc="upper right", ncol=2)
 ax.grid()
+
+time_stamp = [0]
+L1_norm_upwind = [0]
+L1_norm_lax_wendroff = [0]
+L1_norm_muscl_mc = [0]
+
+L2_norm_upwind = [0]
+L2_norm_lax_wendroff = [0]
+L2_norm_muscl_mc = [0]
+
+line_L1_upwind, = ax_norm.plot(0, 0, label="L1 Upwind")
+line_L1_lax_wendroff, = ax_norm.plot(0, 0, label="L1 Lax-Wendroff")
+line_L1_muscl_mc, = ax_norm.plot(0, 0, label="L1 MUSCL w/ MC")
+
+line_L2_upwind, = ax_norm.plot(0, 0,label="L2 Upwind",linestyle = '--')
+line_L2_lax_wendroff, = ax_norm.plot(0, 0, label="L2 Lax-Wendroff",linestyle = '--')
+line_L2_muscl_mc, = ax_norm.plot(0, 0, label="L2 MUSCL w/ MC",linestyle = '--')
+
+ax_norm.legend(loc="upper right",ncol =2)
+ax_norm.grid()
+
 fig.tight_layout()
+
+v_fac = 8
 
 # Initialization function
 def init():
-    global q_upwind, q_lax_wendroff, q_muscl_mc
+    global q_upwind, q_lax_wendroff, q_muscl_mc, time_stamp, L1_norm_upwind, L1_norm_lax_wendroff, L1_norm_muscl_mc
+    global L2_norm_upwind, L2_norm_lax_wendroff, L2_norm_muscl_mc
+
     q_upwind = np.copy(q0)
     q_lax_wendroff = np.copy(q0)
     q_muscl_mc = np.copy(q0)
-    
-    line1.set_ydata(q_upwind)
-    line2.set_ydata(q_lax_wendroff)
-    line3.set_ydata(q_muscl_mc)
+
+    time_stamp = [0]
+    L1_norm_upwind = [0]
+    L1_norm_lax_wendroff = [0]
+    L1_norm_muscl_mc = [0]
+
+    L2_norm_upwind = [0]
+    L2_norm_lax_wendroff = [0]
+    L2_norm_muscl_mc = [0]
+
+    line0.set_ydata(q0)
+    line1.set_ydata(q0)
+    line2.set_ydata(q0)
+    line3.set_ydata(q0)
     line4.set_ydata(q0)
-    
-    title.set_text(f"t = 0")
-    
-    return line1, line2, line3, line4, title
 
+    line_L1_upwind.set_data(time_stamp, L1_norm_upwind)
+    line_L1_lax_wendroff.set_data(time_stamp, L1_norm_lax_wendroff)
+    line_L1_muscl_mc.set_data(time_stamp, L1_norm_muscl_mc)
 
-v_fac = 2
-# Animation function
-def update(frame):
-    global q_upwind, q_lax_wendroff, q_muscl_mc, q_exact
-    
+    line_L2_upwind.set_data(time_stamp, L2_norm_upwind)
+    line_L2_lax_wendroff.set_data(time_stamp, L2_norm_lax_wendroff)
+    line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
+
+    return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
+
+def animate(n):
+    global q_upwind, q_lax_wendroff, q_muscl_mc, time_stamp, L1_norm_upwind, L1_norm_lax_wendroff, L1_norm_muscl_mc
+    global L2_norm_upwind, L2_norm_lax_wendroff, L2_norm_muscl_mc
+
     q_upwind = first_order_upwind(q_upwind, u, dt, dx, v_fac)
     q_lax_wendroff = lax_wendroff(q_lax_wendroff, u, dt, dx, v_fac)
     q_muscl_mc = muscl_mc(q_muscl_mc, u, dt, dx, v_fac)
 
+    t = (n + 1) * dt * v_fac
+    q_exact = f((x - t * u) % L)
+    time_stamp.append(t)
+    L1_norm_upwind.append(get_L1(q_upwind, q_exact))
+    L1_norm_lax_wendroff.append(get_L1(q_lax_wendroff, q_exact))
+    L1_norm_muscl_mc.append(get_L1(q_muscl_mc, q_exact))
+
+    L2_norm_upwind.append(get_L2(q_upwind, q_exact))
+    L2_norm_lax_wendroff.append(get_L2(q_lax_wendroff, q_exact))
+    L2_norm_muscl_mc.append(get_L2(q_muscl_mc, q_exact))
+
+    line0.set_ydata(q0)
     line1.set_ydata(q_upwind)
     line2.set_ydata(q_lax_wendroff)
     line3.set_ydata(q_muscl_mc)
-    line4.set_ydata(f((x - frame*dt*v_fac * u) % L))
+    line4.set_ydata(q_exact)
 
-    ax.set_title(f'Advection Equation Simulation')
-    
-    title.set_text(f"t = {dt*frame*v_fac:.3f}")
+    line_L1_upwind.set_data(time_stamp, L1_norm_upwind)
+    line_L1_lax_wendroff.set_data(time_stamp, L1_norm_lax_wendroff)
+    line_L1_muscl_mc.set_data(time_stamp, L1_norm_muscl_mc)
 
-    return line1, line2, line3, line4, title
+    line_L2_upwind.set_data(time_stamp, L2_norm_upwind)
+    line_L2_lax_wendroff.set_data(time_stamp, L2_norm_lax_wendroff)
+    line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
 
-# Create animation
-ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=5, blit=True)
-writer_ffmpeg = animation.FFMpegWriter(fps=30)  
-plt.show()
-ani.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg) 
-plt.close() 
+    title.set_text(f'Time = {t:.2f}')
+
+    return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
+
+anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=5, blit=True)
+
+# plt.show()
+
+writer_ffmpeg = animation.FFMpegWriter(fps=30)
+anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
+
+# try:
+#     writer_ffmpeg = animation.FFMpegWriter(fps=30)
+#     anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
+
+# except:
+#     writer_gif = animation.PillowWriter(fps=30)
+#     anim.save(f'advec_1d_CFL_{CFL:.2f}.gif', writer=writer_gif)
+
+
+
+# plt.close()

@@ -85,30 +85,57 @@ def minmod(a, b):
 def muscl_mc(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
-        qim1 = np.roll(q, 1)   # q_{j-1}
-        qip1 = np.roll(q, -1)  # q_{j+1}
-        
-        dqR = qip1 - q
-        dqL = q - qim1
-        dqC = (qip1 - qim1) / 2.0
-        
-        dq = np.zeros_like(q)
-        for j in range(len(q)):
-            dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
-        
-        qiph_M = q + dq / 2.0
-        qimh_M = q - dq / 2.0
+        v = u * dt / dx[1:-1]
 
-        qL = qiph_M[:-1]
-        qR = qimh_M[1:]
+        if u > 0:
+            dQ_inh = q - np.roll(q, 1)
+            dQ_iph = np.roll(q, -1) - q
+            dQ_inf = np.roll(q, 1) - np.roll(q, 2)
 
-        flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
-        
-        q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
-        apply_periodic_bc(q_new)
+            theta_in = np.where(np.abs(dQ_inh) > 1e-6, dQ_inf / dQ_inh, 0)
+            theta_ip = np.where(np.abs(dQ_iph) > 1e-6, dQ_inh / dQ_iph, 0)
+
+            psi_in = np.zeros_like(q)
+            psi_ip = np.zeros_like(q)
+            # print(np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0))
+            # for j in range(len(q)):
+            psi_in = np.max([psi_in, np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0)],axis=0)
+            psi_ip = np.max([psi_ip, np.array([(1 + theta_ip) / 2, 2*np.ones_like(theta_in), 2 * theta_ip]).min(axis=0)],axis=0)
+
+            q_new[1:-1] = (
+                q[1:-1]
+                - v * (q[1:-1] - q[:-2])
+                - 0.5 * v * (1 - v) * (psi_ip[1:-1] * (q[2:] - q[1:-1]) - psi_in[1:-1] * (q[1:-1] - q[:-2]))
+            )
+
+        else:
+            dQ_inh = q - np.roll(q, 1)
+            dQ_iph = np.roll(q, -1) - q
+            dQ_ipf = np.roll(q, -2) - np.roll(q, -1)
+
+            theta_in = np.where(np.abs(dQ_inh) > 1e-6, dQ_iph / dQ_inh, 0)
+            theta_ip = np.where(np.abs(dQ_iph) > 1e-6, dQ_ipf / dQ_iph, 0)
+
+            psi_in = np.zeros_like(q)
+            psi_ip = np.zeros_like(q)
+            # print(np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0))
+            # for j in range(len(q)):
+            psi_in = np.max([psi_in, np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0)],axis=0)
+            psi_ip = np.max([psi_ip, np.array([(1 + theta_ip) / 2, 2*np.ones_like(theta_in), 2 * theta_ip]).min(axis=0)],axis=0)
+
+            q_new[1:-1] = (
+                q[1:-1]
+                - v * (q[2:] - q[1:-1])
+                + 0.5 * v * (1 + v) * (psi_ip[1:-1] * (q[2:] - q[1:-1]) - psi_in[1:-1] * (q[1:-1] - q[:-2]))
+            )
+
+
+        q_new[0] = q_new[-2]
+        q_new[-1] = q_new[1]
         q[:] = q_new[:]
-        
     return q
+
+
 
 # Exact solutions for characteristic variables
 w_exact = sigma0 + c * f((x - T * c) % L)

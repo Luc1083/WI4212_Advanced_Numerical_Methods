@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from numba import jit
 
+non_uniform = False
+
+
 # Parameters
 L = 4 * np.pi
 T = 5  # 5 periods
@@ -10,34 +13,48 @@ T = 5  # 5 periods
 Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.9
+CFL = 0.99
 
-# # Create a non-uniform grid
-x = np.linspace(0, L, Nx)
-# x *= np.exp(x)
-dx = np.diff(x)
-dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
+if non_uniform is True:
+    x_1 = np.linspace(0, L/2, int(Nx * 2/3))
+    x_2 = np.linspace(L/2,L, Nx - int(Nx * 2/3))
+
+    x = np.concatenate([x_1,x_2])
+    dx = np.diff(x)
+    dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
+
+
+else:
+    # # Create a non-uniform grid
+    x = np.linspace(0, L, Nx)
+    # x *= np.exp(x)
+    dx = np.diff(x)
+    dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
 # Chebyshev nodes in [-1, 1]
 # chebyshev_nodes = np.cos(np.pi * (2 * np.arange(1, Nx + 1) - 1) / (2 * Nx))
 
-# # Transform nodes to the interval [0, L]
+
 # x = 0.5 * L * (chebyshev_nodes + 1)
 
-# # Compute the differences
+
 # dx = np.diff(x)
 # dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
-# Plot the histogram of dx
+
 # plt.plot(x,dx)
 # plt.show()
 
 # Ensure CFL condition is met
 dt = CFL * np.min(np.abs(dx)) /np.abs(u)
-
 Nt = int(np.round(T/dt))
+
 # CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
-print(f"CFL condition: {CFL:.2f}")
+
+print(f"Max CFL condition found: {CFL:.2f}")
+print(f"Number of timesteps: {Nt}")
+print(f"Timestep dt: {dt}")
+
 if CFL > 1:
     print("CFL condition is not met. The simulation may be unstable.")
 
@@ -132,8 +149,8 @@ def muscl_mc_trial(q, u, dt, dx, Nt):
         dQ_iph = np.roll(q, -1) - q
         dQ_ipf = np.roll(q, -2) - np.roll(q, -1)
 
-        theta_in = np.where(dQ_inh != 0, dQ_iph / dQ_inh, 0)
-        theta_ip = np.where(dQ_iph != 0, dQ_ipf / dQ_iph, 0)
+        theta_in = np.where(np.abs(dQ_inh) > 1e-6, dQ_iph / dQ_inh, 0)
+        theta_ip = np.where(np.abs(dQ_iph) > 1e-6, dQ_ipf / dQ_iph, 0)
 
         psi_in = np.zeros_like(q)
         psi_ip = np.zeros_like(q)
@@ -164,6 +181,10 @@ ax.set_xlabel('x')
 ax.set_ylabel('q')
 ax.set_title(f'1D Advection, CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
 
+if non_uniform is True:
+    ax.axvspan(0, L/2, alpha=0.1, color='red',label = 'fine')
+    ax.axvspan(L/2, L, alpha=0.1, color='green', label = 'coarse')
+
 q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, Nt)
 q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
 q_muscl_mc = muscl_mc_trial(np.copy(q0), u, dt, dx, Nt)
@@ -177,8 +198,15 @@ line4, = ax.plot(x, q_exact, '-.', c='blue', label='Exact Solution', linewidth=1
 title = ax.text(0.925,0.03, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':6},
                 transform=ax.transAxes, ha="center")
 
-ax.legend(loc="upper right")
+ax.legend(loc="upper right", ncol=2)
 ax.grid()
 fig.tight_layout()
 
-plt.show()
+if non_uniform:
+
+    fig.savefig(f"figures/advec_CFL{CFL:.2e}_nx_{Nx}_NU.png")
+
+else:
+    fig.savefig(f"figures/advec_CFL{CFL:.2e}_nx_{Nx}_U.png")
+
+# plt.show()
