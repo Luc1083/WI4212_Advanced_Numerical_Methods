@@ -8,9 +8,9 @@ non_uniform = False
 
 # Parameters
 L = 4 * np.pi
-T = 20  # 5 periods
+T = 5  # 5 periods
 
-Nx = 100  # Number of spatial points
+Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
 CFL = 0.5
@@ -265,14 +265,33 @@ def animate(n):
     line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
 
     title.set_text(f'Time = {t:.2f}')
+    
+    if n == Nt//v_fac:
+        
+        fig_1, ax_norm_1 = plt.subplots(figsize=(7, 5))
+
+        ax_norm_1.plot(time_stamp, L1_norm_upwind, label="L1 Upwind")
+        ax_norm_1.plot(time_stamp, L1_norm_lax_wendroff, label="L1 Lax-Wendroff")
+        ax_norm_1.plot(time_stamp, L1_norm_muscl_mc, label="L1 MUSCL w/ MC")
+
+        ax_norm_1.plot(time_stamp, L2_norm_upwind,label="L2 Upwind",linestyle = '--')
+        ax_norm_1.plot(time_stamp, L2_norm_lax_wendroff, label="L2 Lax-Wendroff",linestyle = '--')
+        ax_norm_1.plot(time_stamp, L2_norm_muscl_mc, label="L2 MUSCL w/ MC",linestyle = '--')
+
+        ax_norm_1.legend(loc="upper right",ncol =2)
+        ax_norm_1.grid()
+
+        fig_1.tight_layout()
+
+        fig_1.savefig("bob.png")
 
     return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
 
-anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=10, blit=True)
+anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=100, blit=True)
 
 plt.show()
 
-writer_ffmpeg = animation.FFMpegWriter(fps=30)
+# writer_ffmpeg = animation.FFMpegWriter(fps=30)
 # anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
 
 # try:

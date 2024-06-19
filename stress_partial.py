@@ -268,7 +268,7 @@ def main():
 
     CFL_list = [0.01,0.1,0.5,0.9,1.1]
     T_list = [1, 2, 5]
-    Nx_list = [200,1000]
+    Nx_list = [500]
 
     configs = list(it.product(CFL_list,T_list,Nx_list))
     
