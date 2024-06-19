@@ -8,7 +8,7 @@ non_uniform = False
 
 # Parameters
 L = 4 * np.pi
-T = 5  # 5 periods
+T = 2 *np.pi + np.pi/2  # 5 periods
 
 Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
@@ -196,6 +196,7 @@ ax_norm.grid()
 fig.tight_layout()
 
 v_fac = 1
+plot_norm = 1
 
 # Initialization function
 def init():
@@ -234,6 +235,7 @@ def init():
 def animate(n):
     global q_upwind, q_lax_wendroff, q_muscl_mc, time_stamp, L1_norm_upwind, L1_norm_lax_wendroff, L1_norm_muscl_mc
     global L2_norm_upwind, L2_norm_lax_wendroff, L2_norm_muscl_mc
+    global plot_norm
 
     q_upwind = first_order_upwind(q_upwind, u, dt, dx, v_fac)
     q_lax_wendroff = lax_wendroff(q_lax_wendroff, u, dt, dx, v_fac)
@@ -265,13 +267,15 @@ def animate(n):
     line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
 
     title.set_text(f'Time = {t:.2f}')
-    
-    if n == Nt//v_fac:
+    # print(n+1)
+    if n+1 == Nt//v_fac and plot_norm ==10:
         
-        fig_1, ax_norm_1 = plt.subplots(figsize=(7, 5))
+        fig_1 = plt.figure(figsize=(8, 5))
 
-        ax_norm_1.plot(time_stamp, L1_norm_upwind, label="L1 Upwind")
-        ax_norm_1.plot(time_stamp, L1_norm_lax_wendroff, label="L1 Lax-Wendroff")
+        ax_norm_1 = fig_1.gca()
+
+        ax_norm_1.plot(time_stamp, L1_norm_upwind, 'b-' ,label="L1 Upwind")
+        ax_norm_1.plot(time_stamp, L1_norm_lax_wendroff, 'r-',label="L1 Lax-Wendroff")
         ax_norm_1.plot(time_stamp, L1_norm_muscl_mc, label="L1 MUSCL w/ MC")
 
         ax_norm_1.plot(time_stamp, L2_norm_upwind,label="L2 Upwind",linestyle = '--')
@@ -280,14 +284,20 @@ def animate(n):
 
         ax_norm_1.legend(loc="upper right",ncol =2)
         ax_norm_1.grid()
+        ax_norm_1.set_xlabel("Timestamp")
+        ax_norm_1.set_ylabel("Norm value")
+        ax_norm_1.set_ylim(-0.05,0.1)
+
 
         fig_1.tight_layout()
 
-        fig_1.savefig("bob.png")
+        fig_1.savefig(f"advec_norms_CFL_{CFL}_Nx_{Nx}.pdf")
+
+        plot_norm+=1
 
     return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
 
-anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=100, blit=True)
+anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=5, blit=True)
 
 plt.show()
 

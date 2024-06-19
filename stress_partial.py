@@ -10,6 +10,7 @@ def run_stress(T,CFL,Nx):
     # Parameters
     L = 4 * np.pi
     T = T  # 5 periods
+    T_p = T *2*np.pi
 
     Nx = Nx  # Number of spatial points
     # u = -1  
@@ -24,9 +25,9 @@ def run_stress(T,CFL,Nx):
     dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
     # Ensure CFL condition is met
-    dt = CFL * np.min(np.abs(dx))
+    dt = CFL * np.min(np.abs(dx))/c
 
-    Nt = int(np.round(T / dt))
+    Nt = int(np.round(T_p / dt))
     print(f"CFL condition: {CFL:.1e}")
     if CFL > 1:
         print("CFL condition is not met. The simulation may be unstable.")
@@ -143,15 +144,15 @@ def run_stress(T,CFL,Nx):
 
 
     # Exact solutions for characteristic variables
-    w_exact = 0.5*sigma0 + 0.25 * f((x + T * 2) % L)
-    z_exact = -0.5*sigma0 + 0.25 * f((x + T * -2) % L)
+    w_exact = 0.5*sigma0 + 0.25 * f((x + T_p * 2) % L)
+    z_exact = -0.5*sigma0 + 0.25 * f((x + T_p * -2) % L)
 
 
 
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.set_xlim(0, L)
-    # ax.set_ylim(-0.2, 2.0)
+    ax.set_ylim(0, 1.0)
     ax.set_xlabel('x')
     ax.set_ylabel('w')
     ax.set_title(f'Characteristic Variable w, CFL = {CFL:.2f}')
@@ -177,7 +178,7 @@ def run_stress(T,CFL,Nx):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.set_xlim(0, L)
-    # ax.set_ylim(-0.2, 2.0)
+    ax.set_ylim(-0.75, 0)
     ax.set_xlabel('x')
     ax.set_ylabel('z')
     ax.set_title(f'Characteristic Variable z, CFL = {CFL:.2f}')
@@ -197,8 +198,6 @@ def run_stress(T,CFL,Nx):
     fig.tight_layout()
 
     fig.savefig(f"figures_stress/stress_CharZ_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}.pdf")
-
-
 
 
     # w0 = 0.5 * sigma0 + 0.25 * v0
@@ -221,7 +220,7 @@ def run_stress(T,CFL,Nx):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.set_xlim(0, L)
-    # ax.set_ylim(-0.2, 2.0)
+    ax.set_ylim(0.5, 1.5)
     ax.set_xlabel('x')
     ax.set_ylabel('sigma')
     ax.set_title(f'Stress Equations, sigma, CFL = {CFL:.2f}')
@@ -242,7 +241,7 @@ def run_stress(T,CFL,Nx):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.set_xlim(0, L)
-    # ax.set_ylim(-0.2, 2.0)
+    ax.set_ylim(-0.25, 1.25)
     ax.set_xlabel('x')
     ax.set_ylabel('v')
     ax.set_title(f'Stress Equations, v , CFL = {CFL:.2f}')
@@ -256,8 +255,6 @@ def run_stress(T,CFL,Nx):
     ax.legend(loc="upper right")
     ax.grid()
     fig.tight_layout()
-
-
 
     fig.savefig(f"figures_stress/stress_V_T_{T}_CFL_{CFL:.2e}_nx_{Nx:.1e}.pdf")
 

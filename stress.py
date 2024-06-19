@@ -4,7 +4,7 @@ from numba import jit
 
 # Parameters
 L = 4 * np.pi
-T = 0.2  # 5 periods
+T = 5* 2*np.pi  # 5 periods
 
 Nx = 1000  # Number of spatial points
 # u = -1  
@@ -19,7 +19,7 @@ dx = np.diff(x)
 dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 
 # Ensure CFL condition is met
-dt = CFL * np.min(np.abs(dx))
+dt = CFL * np.min(np.abs(dx))/c
 
 Nt = int(np.round(T / dt))
 print(f"CFL condition: {CFL:.1e}")
@@ -146,7 +146,7 @@ z_exact = -0.5*sigma0 + 0.25 * f((x + T * -2) % L)
 
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlim(0, L)
-# ax.set_ylim(-0.2, 2.0)
+ax.set_ylim(0, 1.)
 ax.set_xlabel('x')
 ax.set_ylabel('w')
 ax.set_title(f'Characteristic Variable w, CFL = {CFL:.2f}')

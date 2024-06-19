@@ -12,8 +12,8 @@ def run_advec(T,CFL,grid_type,Nx):
 
     # Parameters
     L = 4 * np.pi
-    T = T  # 5 periods
-
+    T =  T # 5 periods
+    T_p = T * 4 * np.pi
     Nx = Nx  # Number of spatial points
     # Nt = 100  # Number of time steps
     u = -1  # Advection velocity u
@@ -51,7 +51,7 @@ def run_advec(T,CFL,grid_type,Nx):
     # Ensure CFL condition is met
     dt = CFL * np.min(np.abs(dx)) /np.abs(u)
     # print(np.min(np.abs(dx)))
-    Nt = int(np.round(T/dt))
+    Nt = int(np.round(T_p/dt))
 
     # CFL = np.abs(u) * dt / np.min(dx)  # Use the smallest dx for the CFL condition
 
@@ -175,7 +175,7 @@ def run_advec(T,CFL,grid_type,Nx):
 
 
     # Exact solution after time T
-    q_exact = f((x - T * u) % L)
+    q_exact = f((x - T_p * u) % L)
 
     # Set up the figure and axis
     fig, ax = plt.subplots(figsize=(10, 6))
