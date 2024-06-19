@@ -6,12 +6,12 @@ from matplotlib import animation
 
 # Parameters
 L = 4 * np.pi
-T = 20  # 5 periods
+T = 5  # 5 periods
 
 Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.5
+CFL = 0.9
 
 # # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
@@ -91,31 +91,59 @@ def minmod(a, b):
         return np.sign(a) * min(abs(a), abs(b))
 
 # MUSCL with MC limiter method
-@jit(nopython=True)
+# @jit(nopython=True)
+# def muscl_mc(q, u, dt, dx, Nt):
+#     q_new = np.copy(q)
+#     for n in range(Nt):
+#         qim1 = np.roll(q, 1)   # q_{j-1}
+#         qip1 = np.roll(q, -1)  # q_{j+1}
+        
+#         dqR = qip1 - q
+#         dqL = q - qim1
+#         dqC = (qip1 - qim1) / 2.0
+        
+#         dq = np.zeros_like(q)
+#         for j in range(len(q)):
+#             dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
+        
+#         # Left and Right extrapolated q-values at the boundary j+1/2
+#         qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
+#         qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
+
+#         qL = qiph_M[:-1]
+#         qR = qimh_M[1:]
+
+#         flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
+        
+#         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
+#         q_new[0] = q_new[-2]
+#         q_new[-1] = q_new[1]
+#         q[:] = q_new[:]
+#     return q
+
 def muscl_mc(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
-        qim1 = np.roll(q, 1)   # q_{j-1}
-        qip1 = np.roll(q, -1)  # q_{j+1}
-        
-        dqR = qip1 - q
-        dqL = q - qim1
-        dqC = (qip1 - qim1) / 2.0
-        
-        dq = np.zeros_like(q)
-        for j in range(len(q)):
-            dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
-        
-        # Left and Right extrapolated q-values at the boundary j+1/2
-        qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
-        qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
+        v = u * dt / dx[1:-1]
 
-        qL = qiph_M[:-1]
-        qR = qimh_M[1:]
+        dQ_inh = q - np.roll(q, 1)
+        dQ_iph = np.roll(q, -1) - q
+        dQ_ipf = np.roll(q, -2) - np.roll(q, -1)
 
-        flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
+        theta_in = np.where(dQ_inh != 0, dQ_iph / dQ_inh, 0)
+        theta_ip = np.where(dQ_iph != 0, dQ_ipf / dQ_iph, 0)
+
+        psi_in = np.zeros_like(q)
+        psi_ip = np.zeros_like(q)
         
-        q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
+        psi_in = np.max([psi_in, np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0)],axis=0)
+        psi_ip = np.max([psi_ip, np.array([(1 + theta_ip) / 2, 2*np.ones_like(theta_in), 2 * theta_ip]).min(axis=0)],axis=0)
+
+        q_new[1:-1] = (
+            q[1:-1]
+            - v * (q[2:] - q[1:-1])
+            + 0.5 * v * (1 + v) * (psi_ip[1:-1] * (q[2:] - q[1:-1]) - psi_in[1:-1] * (q[1:-1] - q[:-2]))
+        )
         q_new[0] = q_new[-2]
         q_new[-1] = q_new[1]
         q[:] = q_new[:]
@@ -166,7 +194,7 @@ def init():
     return line1, line2, line3, line4, title
 
 
-v_fac = 1
+v_fac = 2
 # Animation function
 def update(frame):
     global q_upwind, q_lax_wendroff, q_muscl_mc, q_exact
@@ -187,7 +215,7 @@ def update(frame):
     return line1, line2, line3, line4, title
 
 # Create animation
-ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=20, blit=True)
+ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=5, blit=True)
 writer_ffmpeg = animation.FFMpegWriter(fps=30)  
 plt.show()
 ani.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg) 

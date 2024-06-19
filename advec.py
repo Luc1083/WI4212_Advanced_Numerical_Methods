@@ -7,10 +7,10 @@ from numba import jit
 L = 4 * np.pi
 T = 5  # 5 periods
 
-Nx = 1000  # Number of spatial points
+Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 1.1
+CFL = 0.9
 
 # # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
@@ -92,36 +92,37 @@ def minmod(a, b):
 
 
 # MUSCL with MC limiter method
-@jit(nopython=True)
-def muscl_mc(q, u, dt, dx, Nt):
-    q_new = np.copy(q)
-    for n in range(Nt):
-        qim1 = np.roll(q, 1)   # q_{j-1}
-        qip1 = np.roll(q, -1)  # q_{j+1}
+# @jit(nopython=True)
+# def muscl_mc(q, u, dt, dx, Nt):
+#     q_new = np.copy(q)
+#     for n in range(Nt):
+#         qim1 = np.roll(q, 1)   # q_{j-1}
+#         qip1 = np.roll(q, -1)  # q_{j+1}
         
-        dqR = qip1 - q
-        dqL = q - qim1
-        dqC = (qip1 - qim1) / 2.0
+#         dqR = qip1 - q
+#         dqL = q - qim1
+#         dqC = (qip1 - qim1) / 2.0
         
-        dq = np.zeros_like(q)
-        for j in range(len(q)):
-            dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
+#         dq = np.zeros_like(q)
+#         for j in range(len(q)):
+#             dq[j] = minmod(minmod(2 * dqR[j], 2 * dqL[j]), dqC[j])
         
-        # Left and Right extrapolated q-values at the boundary j+1/2
-        qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
-        qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
+#         # Left and Right extrapolated q-values at the boundary j+1/2
+#         qiph_M = q + dq / 2.0  # q_{j+1/2}^{-} from cell j
+#         qimh_M = q - dq / 2.0  # q_{j+1/2}^{+} from cell j
 
-        qL = qiph_M[:-1]
-        qR = qimh_M[1:]
+#         qL = qiph_M[:-1]
+#         qR = qimh_M[1:]
 
-        flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
+#         flux = 0.5 * u * (qL + qR) - 0.5 * np.abs(u) * (qR - qL)
         
-        q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
-        q_new[0] = q_new[-2]
-        q_new[-1] = q_new[1]
-        q[:] = q_new[:]
-    return q
+#         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
+#         q_new[0] = q_new[-2]
+#         q_new[-1] = q_new[1]
+#         q[:] = q_new[:]
+#     return q
 
+# @jit(nopython=True)
 def muscl_mc_trial(q, u, dt, dx, Nt):
     q_new = np.copy(q)
     for n in range(Nt):
@@ -136,9 +137,10 @@ def muscl_mc_trial(q, u, dt, dx, Nt):
 
         psi_in = np.zeros_like(q)
         psi_ip = np.zeros_like(q)
-        for j in range(len(q)):
-            psi_in[j] = np.max([0, np.min([(1 + theta_in[j]) / 2, 2, 2 * theta_in[j]])])
-            psi_ip[j] = np.max([0, np.min([(1 + theta_ip[j]) / 2, 2, 2 * theta_ip[j]])])
+        # print(np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0))
+        # for j in range(len(q)):
+        psi_in = np.max([psi_in, np.array([(1 + theta_in) / 2, 2*np.ones_like(theta_in), 2 * theta_in]).min(axis=0)],axis=0)
+        psi_ip = np.max([psi_ip, np.array([(1 + theta_ip) / 2, 2*np.ones_like(theta_in), 2 * theta_ip]).min(axis=0)],axis=0)
 
         q_new[1:-1] = (
             q[1:-1]
