@@ -8,7 +8,7 @@ non_uniform = False
 
 # Parameters
 L = 4 * np.pi
-T = 2 *np.pi + np.pi/2  # 5 periods
+T = 5 * 4 * np.pi  # 5 periods
 
 Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
