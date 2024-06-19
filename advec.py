@@ -160,7 +160,7 @@ ax.set_xlim(0, L)
 ax.set_ylim(-0.2, 1.5)
 ax.set_xlabel('x')
 ax.set_ylabel('q')
-ax.set_title(f'Advection Equation, CFL = {CFL:.2f}')
+ax.set_title(f'1D Advection, CFL = {CFL:.2f}, ' + r'$\bar{u}$ =' + f'{u}')
 
 q_upwind = first_order_upwind(np.copy(q0), u, dt, dx, Nt)
 q_lax_wendroff = lax_wendroff(np.copy(q0), u, dt, dx, Nt)
@@ -175,8 +175,8 @@ line4, = ax.plot(x, q_exact, '-.', c='blue', label='Exact Solution', linewidth=1
 title = ax.text(0.925,0.03, f"", bbox={'facecolor':'w', 'alpha':0.5, 'pad':6},
                 transform=ax.transAxes, ha="center")
 
-ax.legend()
-plt.grid()
-plt.tight_layout()
+ax.legend(loc="upper right")
+ax.grid()
+fig.tight_layout()
 
 plt.show()
