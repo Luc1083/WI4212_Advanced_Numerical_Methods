@@ -4,7 +4,7 @@ from matplotlib.animation import FuncAnimation
 from numba import jit
 from matplotlib import animation
 
-non_uniform = False
+non_uniform = True
 
 # Parameters
 L = 4 * np.pi
@@ -288,12 +288,12 @@ def animate(n):
         ax_norm_1.grid()
         ax_norm_1.set_xlabel("Timestamp")
         ax_norm_1.set_ylabel("Norm value")
-        ax_norm_1.set_ylim(0,1)
+        ax_norm_1.set_ylim(0,5)
 
 
         fig_1.tight_layout()
 
-        fig_1.savefig(f"advec_norms_CFL_{CFL}_Nx_{Nx}.pdf")
+        fig_1.savefig(f"advec_norms_CFL_{CFL}_Nx_{Nx}_NU.pdf")
 
         plot_norm+=1
 
@@ -304,7 +304,7 @@ anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=1,
 # plt.show()
 
 writer_ffmpeg = animation.FFMpegWriter(fps=30)
-anim.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg)
+anim.save(f'advec_1d_CFL_{CFL:.2f}_NU.mp4', writer=writer_ffmpeg)
 
 # try:
 #     writer_ffmpeg = animation.FFMpegWriter(fps=30)
