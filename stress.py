@@ -135,6 +135,14 @@ def muscl_mc(q, u, dt, dx, Nt):
         q[:] = q_new[:]
     return q
 
+@jit(nopython=True)
+def get_L1(q,q_ex):
+    return np.sum(np.abs(q-q_ex)) / np.sum(np.abs(q_ex))
+
+@jit(nopython=True)
+def get_L2(q,q_ex):
+    return np.sum((q-q_ex)**2) / np.sum(q_ex**2)
+
 
 
 # Exact solutions for characteristic variables

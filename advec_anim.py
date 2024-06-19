@@ -10,7 +10,7 @@ non_uniform = False
 L = 4 * np.pi
 T = 5 * 4 * np.pi  # 5 periods
 
-Nx = 500  # Number of spatial points
+Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
 CFL = 0.5
@@ -301,10 +301,10 @@ def animate(n):
 
 anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=1, blit=True)
 
-# plt.show()
+plt.show()
 
 writer_ffmpeg = animation.FFMpegWriter(fps=30)
-anim.save(f'advec_1d_CFL_{CFL:.2f}_U.mp4', writer=writer_ffmpeg)
+# anim.save(f'advec_1d_CFL_{CFL:.2f}_U.mp4', writer=writer_ffmpeg)
 
 # try:
 #     writer_ffmpeg = animation.FFMpegWriter(fps=30)
