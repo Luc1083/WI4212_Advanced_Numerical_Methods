@@ -22,7 +22,7 @@ dx = np.append(dx, dx[-1])  # Extend the last dx for boundary conditions
 dt = CFL * np.min(np.abs(dx))
 
 Nt = int(np.round(T / dt))
-print(f"CFL condition: {CFL:.2f}")
+print(f"CFL condition: {CFL:.1e}")
 if CFL > 1:
     print("CFL condition is not met. The simulation may be unstable.")
 
@@ -107,6 +107,7 @@ def muscl_mc(q, u, dt, dx, Nt):
         q_new[1:-1] = q[1:-1] - dt / dx[1:-1] * (flux[1:] - flux[:-1])
         apply_periodic_bc(q_new)
         q[:] = q_new[:]
+        
     return q
 
 # Exact solutions for characteristic variables

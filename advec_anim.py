@@ -6,12 +6,12 @@ from matplotlib import animation
 
 # Parameters
 L = 4 * np.pi
-T = 5  # 5 periods
+T = 20  # 5 periods
 
-Nx = 1000  # Number of spatial points
+Nx = 200  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
-CFL = 0.2
+CFL = 0.5
 
 # # Create a non-uniform grid
 x = np.linspace(0, L, Nx)
@@ -166,7 +166,7 @@ def init():
     return line1, line2, line3, line4, title
 
 
-v_fac = 10
+v_fac = 1
 # Animation function
 def update(frame):
     global q_upwind, q_lax_wendroff, q_muscl_mc, q_exact
@@ -187,7 +187,7 @@ def update(frame):
     return line1, line2, line3, line4, title
 
 # Create animation
-ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=10, blit=True)
+ani = FuncAnimation(fig, update, frames=Nt//v_fac, init_func=init, interval=20, blit=True)
 writer_ffmpeg = animation.FFMpegWriter(fps=30)  
 plt.show()
 ani.save(f'advec_1d_CFL_{CFL:.2f}.mp4', writer=writer_ffmpeg) 
