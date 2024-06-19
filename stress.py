@@ -163,7 +163,8 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-plt.show()
+
+# plt.show()
 
 
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -187,7 +188,7 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-plt.show()
+# plt.show()
 
 # Transform 
 sigma_upwind = 0.5 * (w_upwind + z_upwind)
@@ -209,7 +210,7 @@ ax.set_xlim(0, L)
 # ax.set_ylim(-0.2, 2.0)
 ax.set_xlabel('x')
 ax.set_ylabel('sigma')
-ax.set_title(f'Stress Equations, CFL = {CFL:.2f}')
+ax.set_title(f'Stress Equations, sigma, CFL = {CFL:.2f}')
 
 line0, = ax.plot(x, sigma0, '-.', c='blue', label='Initial Condition (sigma)', linewidth=1.5, alpha=0.2)
 line1, = ax.plot(x, sigma_upwind, '-', c='purple', label='Upwind (sigma)')
@@ -221,16 +222,14 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-plt.show()
-
-
+# plt.show()
 
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlim(0, L)
 # ax.set_ylim(-0.2, 2.0)
 ax.set_xlabel('x')
-ax.set_ylabel('sigma')
-ax.set_title(f'Stress Equations, CFL = {CFL:.2f}')
+ax.set_ylabel('v')
+ax.set_title(f'Stress Equations, v , CFL = {CFL:.2f}')
 
 line0, = ax.plot(x, v_upwind, '-.', c='blue', label='Initial Condition (v)', linewidth=1.5, alpha=0.2)
 line1, = ax.plot(x, v_upwind, '-', c='purple', label='Upwind (v)')
@@ -242,5 +241,5 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-plt.show()
+# plt.show()
 
