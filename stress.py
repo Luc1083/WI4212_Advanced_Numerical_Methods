@@ -4,10 +4,10 @@ from numba import jit
 
 # Parameters
 L = 4 * np.pi
-T = 5  # 5 periods
+T = 0.2  # 5 periods
 
 Nx = 1000  # Number of spatial points
-u = -1  
+# u = -1  
 CFL = 0.1
 mu = 1
 rho = 0.25
@@ -37,8 +37,8 @@ sigma0 = np.ones_like(x)
 v0 = f(x)
 
 # Characteristics
-w0 = sigma0 + c * v0
-z0 = sigma0 - c * v0
+w0 = 0.5 * sigma0 + 0.25 * v0
+z0 = -0.5*sigma0 + 0.25 * v0
 
 @jit(nopython=True)
 def apply_periodic_bc(q):
@@ -138,8 +138,10 @@ def muscl_mc(q, u, dt, dx, Nt):
 
 
 # Exact solutions for characteristic variables
-w_exact = sigma0 + c * f((x - T * c) % L)
-z_exact = sigma0 - c * f((x + T * c) % L)
+w_exact = 0.5*sigma0 + 0.25 * f((x + T * 2) % L)
+z_exact = -0.5*sigma0 + 0.25 * f((x + T * -2) % L)
+
+
 
 
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -149,9 +151,9 @@ ax.set_xlabel('x')
 ax.set_ylabel('w')
 ax.set_title(f'Characteristic Variable w, CFL = {CFL:.2f}')
 
-w_upwind = first_order_upwind(np.copy(w0), c, dt, dx, Nt)
-w_lax_wendroff = lax_wendroff(np.copy(w0), c, dt, dx, Nt)
-w_muscl_mc = muscl_mc(np.copy(w0), c, dt, dx, Nt)
+w_upwind = first_order_upwind(np.copy(w0), -c, dt, dx, Nt)
+w_lax_wendroff = lax_wendroff(np.copy(w0), -c, dt, dx, Nt)
+w_muscl_mc = muscl_mc(np.copy(w0), -c, dt, dx, Nt)
 
 line0, = ax.plot(x, w0, '-.', c='blue', label='Initial Condition (w)', linewidth=1.5, alpha=0.2)
 line1, = ax.plot(x, w_upwind, '-', c='purple', label='Upwind (w)')
@@ -164,7 +166,7 @@ ax.grid()
 fig.tight_layout()
 
 
-# plt.show()
+plt.show()
 
 
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -174,9 +176,9 @@ ax.set_xlabel('x')
 ax.set_ylabel('z')
 ax.set_title(f'Characteristic Variable z, CFL = {CFL:.2f}')
 
-z_upwind = first_order_upwind(np.copy(z0), -c, dt, dx, Nt)
-z_lax_wendroff = lax_wendroff(np.copy(z0), -c, dt, dx, Nt)
-z_muscl_mc = muscl_mc(np.copy(z0), -c, dt, dx, Nt)
+z_upwind = first_order_upwind(np.copy(z0), c, dt, dx, Nt)
+z_lax_wendroff = lax_wendroff(np.copy(z0), c, dt, dx, Nt)
+z_muscl_mc = muscl_mc(np.copy(z0), c, dt, dx, Nt)
 
 line0, = ax.plot(x, z0, '-.', c='blue', label='Initial Condition (z)', linewidth=1.5, alpha=0.2)
 line1, = ax.plot(x, z_upwind, '-', c='purple', label='Upwind (z)')
@@ -188,21 +190,25 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-# plt.show()
+plt.show()
+
+
+# w0 = 0.5 * sigma0 + 0.25 * v0
+# z0 = -0.5*sigma0 + 0.25 * v0
 
 # Transform 
-sigma_upwind = 0.5 * (w_upwind + z_upwind)
-v_upwind = 0.5 * (w_upwind - z_upwind) / c
+sigma_upwind = (w_upwind - z_upwind)
+v_upwind = 2*(w_upwind + z_upwind)
 
-sigma_lax_wendroff = 0.5 * (w_lax_wendroff + z_lax_wendroff)
-v_lax_wendroff = 0.5 * (w_lax_wendroff - z_lax_wendroff) / c
+sigma_lax_wendroff = (w_lax_wendroff - z_lax_wendroff)
+v_lax_wendroff = 2*(w_lax_wendroff + z_lax_wendroff)
 
-sigma_muscl_mc = 0.5 * (w_muscl_mc + z_muscl_mc)
-v_muscl_mc = 0.5 * (w_muscl_mc - z_muscl_mc) / c
+sigma_muscl_mc = (w_muscl_mc - z_muscl_mc)
+v_muscl_mc = 2 * (w_muscl_mc + z_muscl_mc)
 
 # Exact solutions for sigma and v
-sigma_exact = 0.5 * (w_exact + z_exact)
-v_exact = 0.5 * (w_exact - z_exact) / c
+sigma_exact = (w_exact - z_exact)
+v_exact = 2*(w_exact + z_exact)
 
 
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -222,7 +228,7 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-# plt.show()
+plt.show()
 
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlim(0, L)
@@ -241,5 +247,5 @@ ax.legend(loc="upper right")
 ax.grid()
 fig.tight_layout()
 
-# plt.show()
+plt.show()
 
