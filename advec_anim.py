@@ -4,13 +4,13 @@ from matplotlib.animation import FuncAnimation
 from numba import jit
 from matplotlib import animation
 
-non_uniform = True
+non_uniform = False
 
 # Parameters
 L = 4 * np.pi
 T = 5 * 4 * np.pi  # 5 periods
 
-Nx = 200  # Number of spatial points
+Nx = 500  # Number of spatial points
 # Nt = 100  # Number of time steps
 u = -1  # Advection velocity u
 CFL = 0.5
@@ -230,7 +230,7 @@ def init():
     line_L2_lax_wendroff.set_data(time_stamp, L2_norm_lax_wendroff)
     line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
 
-    return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
+    return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc, title
 
 def animate(n):
     global q_upwind, q_lax_wendroff, q_muscl_mc, time_stamp, L1_norm_upwind, L1_norm_lax_wendroff, L1_norm_muscl_mc
@@ -267,8 +267,8 @@ def animate(n):
     line_L2_muscl_mc.set_data(time_stamp, L2_norm_muscl_mc)
 
     title.set_text(f'Time = {t:.2f}')
-    print(n+1)
-    print(Nt//v_fac)
+    # print(n+1)
+    print(n+1, "of", Nt//v_fac)
     # print(n+1)
     if n+1 == Nt//v_fac and plot_norm ==1:
         
@@ -288,23 +288,23 @@ def animate(n):
         ax_norm_1.grid()
         ax_norm_1.set_xlabel("Timestamp")
         ax_norm_1.set_ylabel("Norm value")
-        ax_norm_1.set_ylim(0,5)
+        ax_norm_1.set_ylim(0,2)
 
 
         fig_1.tight_layout()
 
-        fig_1.savefig(f"advec_norms_CFL_{CFL}_Nx_{Nx}_NU.pdf")
+        fig_1.savefig(f"advec_norms_CFL_{CFL}_Nx_{Nx}_U.pdf")
 
         plot_norm+=1
 
-    return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc
+    return line0, line1, line2, line3, line4, line_L1_upwind, line_L1_lax_wendroff, line_L1_muscl_mc, line_L2_upwind, line_L2_lax_wendroff, line_L2_muscl_mc, title
 
 anim = FuncAnimation(fig, animate, init_func=init, frames=Nt//v_fac, interval=1, blit=True)
 
 # plt.show()
 
 writer_ffmpeg = animation.FFMpegWriter(fps=30)
-anim.save(f'advec_1d_CFL_{CFL:.2f}_NU.mp4', writer=writer_ffmpeg)
+anim.save(f'advec_1d_CFL_{CFL:.2f}_U.mp4', writer=writer_ffmpeg)
 
 # try:
 #     writer_ffmpeg = animation.FFMpegWriter(fps=30)
